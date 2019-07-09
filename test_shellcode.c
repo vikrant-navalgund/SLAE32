@@ -1,3 +1,6 @@
+// This skeleton/template has been taken from the excellent book 'Attacking Network Protocols' by James Forshaw.
+// This gives a good framework to play around developing and debugging shellcode.
+
 #include<stdlib.h>
 #include<fcntl.h>
 #include<sys/mman.h>
