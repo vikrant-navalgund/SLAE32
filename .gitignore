@@ -1,0 +1,5 @@
+# Dont track content of these files.
+
+# Generated Binary files
+
+*.bin
