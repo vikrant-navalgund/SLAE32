@@ -2,6 +2,8 @@
 ; Targets 32-bit OS
 ; [ socket --> bind --> listen --> accept --> dup2 --> execve("/bin/sh", ..) ]
 
+; This skeleton/framework is from the book 'Hacking: The Art of exploitation - Joh Erickson'
+
 BITS 32
 section .text
 global _start
