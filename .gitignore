@@ -2,4 +2,5 @@
 
 # Generated Binary files
 
+*.c
 *.bin
