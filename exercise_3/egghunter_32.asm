@@ -4,7 +4,7 @@
 
 BITS 32
 
-%define _EGG_TAG     0x50905090 ;0x55485349
+%define _EGG_TAG 0x50905090
 %define _SYSCALL_ERR 0xF2 
 %define _EGG_SIZE    0x8
 
