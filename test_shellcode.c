@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 	
-	printf("Mapped Address: %p\n", shell);
+	printf("Shellcode mapped address: %p\n", shell);
 	printf("Shell result: %d\n", shell());
 
 	return 0;
