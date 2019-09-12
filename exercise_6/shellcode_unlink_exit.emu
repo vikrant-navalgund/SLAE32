@@ -1,0 +1,164 @@
+#! /usr/bin/env python
+from unicorn import *
+from unicorn.x86_const import *
+import struct
+
+# Insert the shellcode to emulate.
+
+shellcode = b"\x31\xc9\xf7\xe9\x68\xcb\xc9\xe4\x00\x68\x8f\xce\xf9\xc9\x68\x87"
+shellcode +=b"\xcb\xc4\xf1\x89\xe3\xb1\x0b\x04\x02\x80\x34\x24\xaa\x00\x04\x24"
+shellcode +=b"\x44\xe2\xf4\x2c\x0c\xcd\x80\xfe\xc0\xcd\x80"
+
+BASE = 0x400000
+STACK_ADDR = 0x0
+STACK_SIZE = 1024 * 1024
+
+mu = Uc(UC_ARCH_X86, UC_MODE_32)
+
+mu.mem_map(BASE, 1024 * 1024)
+mu.mem_map(STACK_ADDR, STACK_SIZE)
+
+mu.mem_write(BASE, shellcode)
+mu.reg_write(UC_X86_REG_ESP, STACK_ADDR + int(STACK_SIZE/2))
+
+def get_bytearray(code):
+    str_val = ''
+    index = 0
+    code_len = len(code)
+    while index < code_len:
+        str_val += str(code[index])
+        index += 1
+    return str_val
+
+def read_str_from_mem(uc, address):
+    str_val = ""
+    i = address
+    byteIn = uc.mem_read(i, 1)
+    while byteIn[0] != 0x00:
+        str_val += str(byteIn)
+        i += 1
+        byteIn = uc.mem_read(i, 1)
+    return str_val
+
+def read_str_array(uc, address):
+    str_array = []
+    if address == 0:
+        return None
+    ptr = struct.unpack("<I", uc.mem_read(address, 4))[0]
+    while ptr != 0:
+        str_array.append(read_str_from_mem(uc, ptr))
+        address += 4
+        ptr = struct.unpack("<I", uc.mem_read(address, 4))[0]
+    return str_array
+
+def sys_call_socketcall_to_socket_fun(num):
+    socketcall_num_map = {1: 'socket',
+            2: 'bind',
+            3: 'connect',
+            4: 'listen',
+            5: 'accept' }
+    return socketcall_num_map[num]
+
+def num_to_sockfds(num):
+    sockfds = {0: 'STDIN', 1: 'STDOUT', 2: 'STDERR'}
+    if num in sockfds:
+        return sockfds[num]
+    return num
+
+def sys_call_to_num(num):
+    sys_call_map = {1:'__exit',
+            3:'__read',
+            4:'__write',
+            5:'__open',
+            6:'__close',
+            10:'__unlink',
+            11:'__execve',
+            12:'__chdir',
+            15:'__chmod',
+            63:'__dup2',
+            102:'__socketcall',
+	    164:'__setresuid',
+            361:'__bind',
+            362:'__connect',
+            363:'__listen',
+            364:'__accept'}
+    return sys_call_map[num]
+
+# Callback function ....
+def hook_code(mu, address, size, user_data):
+    #print('\033[33;1m[ [+] Tracing instructions at 0x%x, instruction size = 0x%x) ]\033[0m' %(address, size))
+
+    machine_code = mu.mem_read(address,size)
+    if machine_code == "\xcd\x80":
+        r_eax = mu.reg_read(UC_X86_REG_EAX)
+        r_ebx = mu.reg_read(UC_X86_REG_EBX)
+        r_ecx = mu.reg_read(UC_X86_REG_ECX)
+        r_edx = mu.reg_read(UC_X86_REG_EDX)
+        r_esi = mu.reg_read(UC_X86_REG_ESI)
+        r_eip = mu.reg_read(UC_X86_REG_EIP)
+        r_esp = mu.reg_read(UC_X86_REG_ESP)
+        r_ebp = mu.reg_read(UC_X86_REG_EBP)
+        r_eflags = mu.reg_read(UC_X86_REG_EFLAGS)
+
+        print("\033[33;1m============================================================\033[0m")
+        print("\033[36;1m$eax = 0x%x, $ebx = 0x%x, $ecx = 0x%x, $edx = 0x%x \033[0m" %(r_eax, r_ebx, r_ecx,r_edx))
+        print("\033[36;1m$esi = 0x%x, $eip = 0x%x, $esp = 0x%x, $ebp = 0x%x \033[0m" %(r_esi, r_eip, r_esp, r_ebp))
+        print("\033[36;1mEFLAGS = 0x%x \033[0m" %(r_eflags))
+        print("\033[33;1m============================================================\033[0m")
+
+        sys_call = sys_call_to_num(r_eax)
+        print("\n\033[31;1m[+] system call: %s\033[0m" %(sys_call))
+        if sys_call == '__socketcall':
+            print("\033[32;1marg0 [socketcall number] = %d(%s)\033[0m" %(r_ebx, sys_call_socketcall_to_socket_fun(r_ebx)))
+            print("\033[32;1marg1 [socketcall *args] = 0x%x\033[0m" %(r_ecx))
+        elif sys_call == '__open':
+            #int open(const char *pathname, int flags, mode_t mode)
+            print("\033[32;1marg0 [filename] = %s\033[0m" %(read_str_from_mem(mu, r_ebx)))
+            print("\033[32;1marg1 = 0x%x\033[0m" %(r_ecx))
+            print("\033[32;1marg2 = %d\033[0m" %(r_edx))
+        elif sys_call == '__read':
+            # ssize_t read(int fd, void *buf, size_t count)
+            print("\033[32;1marg0(fd) = %d\033[0m" %(r_ebx))
+            print("\033[32;1marg1(*buffer) = 0x%x\033[0m" %(r_ecx))
+            print("\033[32;1marg2(count) = %d\033[0m" %(r_edx))
+        elif sys_call == '__write':
+            #ssize_t write(int fd, const void *buf, size_t count)
+            print("\033[32;1marg0(fd) = %d(%s)\033[0m" %(r_ebx, num_to_sockfds(r_ebx)))
+            print("\033[32;1marg1(*buffer) = 0x%x\033[0m" %(r_ecx))
+            print("\033[32;1marg2(count) = %d\033[0m" %(r_edx))
+        elif sys_call == '__exit':
+            print("\033[32;1marg0 = 0x%x\033[0m" %(r_ebx))
+            exit()
+        elif sys_call == '__dup2':
+            print("\033[32;1marg0 [oldfd] = %d\033[0m" %(r_ebx))
+            print("\033[32;1marg1 [newfd] = %d(%s)\033[0m" %(r_ecx, num_to_sockfds(r_ecx)))
+        elif sys_call == '__execve':
+            print("\033[32;1marg0 [filename] = %s\033[0m" %(read_str_from_mem(mu, r_ebx)))
+            print("\033[32;1marg1 [*argv] = %s\033[0m" %(read_str_array(mu,r_ecx)))
+            print("\033[32;1marg2 [*argp] = %s\033[0m" %(read_str_array(mu,r_edx)))
+        elif sys_call == '__setresuid':
+            print("\033[32;1marg0 [ruid] = %d\033[0m" %(r_ebx))
+            print("\033[32;1marg1 [euid] = %d\033[0m" %(r_ecx))
+            print("\033[32;1marg2 [suid] = %d\033[0m" %(r_edx))
+        elif sys_call == '__unlink':
+            print("\033[32;1marg0 [filename] = %s\033[0m" %(read_str_from_mem(mu, r_ebx)))
+
+        mu.reg_write(UC_X86_REG_EIP, address + size)
+        print("\033[33;1m============================================================\033[0m")
+        #raw_input("Continue..")
+
+# Register the call back to unicorn-engine
+mu.hook_add(UC_HOOK_CODE, hook_code)
+
+# Main loop
+if __name__ == "__main__":
+    try:
+        print("\n\033[33;1m[ [+] Emulating shellcode for x86 payload ]\033[0m\n")
+        #print("\n\033[33;1m[ [+] Shellcode:: [ %s ]\033[0m" %(get_bytearray(shellcode)))
+        mu.emu_start(BASE, BASE + len(shellcode))
+        mu.emu_stop()
+    except UcError as e:
+        print("Exception: %s" %(e))
+    finally:
+        print("\n\033[33;1m[ [+] Emulating shellcode completed for x86 payload ]\033[0m\n")
+

