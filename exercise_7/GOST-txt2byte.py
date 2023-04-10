@@ -1,14 +1,6 @@
 #! /usr/bin/env python
 import argparse
 
-def txt2byteBuffer(text):
-    if len(text) < 32:
-        print('\n[-] Error: Key length should be 32-bytes')
-        exit(0)
-    elif len(text) > 32:
-        print('\n[!] Warning: Key length truncated to 32-bytes')
-    return bytes(text, 'utf-8')[:32]
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='GOST-keygen.py',
