@@ -45,11 +45,6 @@ sBoxes = [
 ]
  
 
-# Get Random key - 32 bytes - use for generating a random key 
-def getRandomKey():
-    return random.randbytes(32)
-
-
 # Key scheduling Algorithm
 def getKeys(inputKey):
     keys = inputKey
@@ -198,11 +193,6 @@ if __name__ == '__main__':
     for i in range(len(key_space)):
         print('K{}: {}'.format(i, bytes.hex(key_space[i])))
     
-    ''' 
-    with open('./filename.bin', 'wb') as f:
-        f.write(getRandomKey())
-    exit(0)
-    ''' 
     print()
     if (args.encrypt):
         with open(args.inputfile, 'rb') as fr, open(args.outputfile, 'wb') as fw:
